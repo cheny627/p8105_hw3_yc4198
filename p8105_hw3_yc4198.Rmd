@@ -1,0 +1,60 @@
+---
+title: "Homework 3"
+author: "Yining Chen"
+date: "2022-10-06"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,message=FALSE}
+library(dplyr)
+library(tidyverse)
+```
+
+## Question 2
+```{r}
+accel <- read.csv("accel_data.csv")
+```
+
+```{r}
+accel$day_type <- ifelse(accel$day %in% c("Saturday", "Sunday"), "weekend", "weekday")
+accel <- accel %>% 
+  pivot_longer(
+    activity.1:activity.1440,
+    names_to = "minute",
+    names_prefix = "activity.",
+    values_to = "activity")
+```
+
+The accelerometer data contains `r nrow(accel)` observations and `r ncol(accel)`  columns after cleaning. It includes 6 variables which are `r names(accel)`.
+
+```{r}
+total <- accel%>% group_by(day_id) %>%                       
+  summarise_at(vars(activity),             
+               list(total_activity = sum))  
+
+total$day_type <- accel$day_type[match(total$day_id,accel$day_id)]
+ ggplot(total,aes(x =day_id, y = total_activity,color = day_type)) + 
+    geom_point()
+```
+We did not observe any apparent trends in the total activity over the day. The total activity on weekdays does not have much variation, but the total activity on weekends seems to decline.
+```{r}
+ggplot(data = accel, aes(x = minute, y = activity, color = day))  + 
+  geom_line(size=0.5) #geom_smooth alpha
+```
+
+## Question 3
+```{r}
+library(p8105.datasets)
+data("ny_noaa")
+```
+
+```{r}
+ny_noaa<-separate(ny_noaa, col=date, into=c('year', 'month','day'), sep='-')
+sort(table(ny_noaa$snow),decreasing = TRUE)[1]
+```
+The most commonly observed value for snowfall is zero, because most of the time 
+there is no snow in New York.
