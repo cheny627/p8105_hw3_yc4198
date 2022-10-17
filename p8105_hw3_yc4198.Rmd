@@ -27,6 +27,8 @@ accel <- accel %>%
     names_to = "minute",
     names_prefix = "activity.",
     values_to = "activity")
+accel <- accel %>%mutate(
+    minute = as.numeric(minute))
 ```
 
 The accelerometer data contains `r nrow(accel)` observations and `r ncol(accel)`  columns after cleaning. It includes 6 variables which are `r names(accel)`.
@@ -36,14 +38,29 @@ total <- accel%>% group_by(day_id) %>%
   summarise_at(vars(activity),             
                list(total_activity = sum))  
 
+total$day <- accel$day[match(total$day_id,accel$day_id)]
 total$day_type <- accel$day_type[match(total$day_id,accel$day_id)]
- ggplot(total,aes(x =day_id, y = total_activity,color = day_type)) + 
-    geom_point()
+print(total)
+ggplot(total,aes(x =day_id,y = total_activity,color = day_type)) + 
+    geom_point()+
+  labs(title =  "Total Activity Over the Day", 
+    x = "Days",
+    y = "Total Activity",
+    caption = "Data from the accel dataset"
+  )
 ```
 We did not observe any apparent trends in the total activity over the day. The total activity on weekdays does not have much variation, but the total activity on weekends seems to decline.
+
 ```{r}
 ggplot(data = accel, aes(x = minute, y = activity, color = day))  + 
-  geom_line(size=0.5) #geom_smooth alpha
+  geom_line(size=0.5)+
+  labs(title =  "24-hour Activity Time Courses for Each Day ", 
+    x = "Time",
+    y = "Activity",
+    caption = "Data from the accel dataset"
+  )+scale_x_continuous(breaks = c(0, 360, 720, 1080, 1440), 
+    labels = c("12AM", "6AM", "12PM", "6PM", "11:59PM")
+    )
 ```
 
 ## Question 3
@@ -54,7 +71,68 @@ data("ny_noaa")
 
 ```{r}
 ny_noaa<-separate(ny_noaa, col=date, into=c('year', 'month','day'), sep='-')
+ny_noaa <- ny_noaa%>% 
+  mutate( tmax = as.numeric(tmax) / 10, tmin = as.numeric(tmin) / 10,
+         prcp= prcp/10,year = as.numeric(year))
 sort(table(ny_noaa$snow),decreasing = TRUE)[1]
 ```
-The most commonly observed value for snowfall is zero, because most of the time 
-there is no snow in New York.
+
+The NOAA data contains `r nrow(ny_noaa)` observations and `r ncol(ny_noaa)`  columns after cleaning. It includes 9 variables which are `r names(ny_noaa)`.
+The variable definitions are:
+id: Weather station ID
+year: Year of observation
+month: Month of observation
+day: Day of observation
+prcp: Precipitation (tenths of mm)
+snow: Snowfall (mm)
+snwd: Snow depth (mm)
+tmax: Maximum temperature (tenths of degrees C)
+tmin: Minimum temperature (tenths of degrees C)
+
+The most commonly observed value for snowfall is zero, because most of the time there is no snow in New York.
+
+```{r,message=FALSE}
+tmax_avg <- ny_noaa%>% filter(month %in% c("01", "07")) %>% drop_na(tmax)%>%
+  group_by(id, year,month) %>% 
+  summarize(mean_tmax = mean(tmax))
+
+ggplot(tmax_avg, aes(x = year, y = mean_tmax, color = month)) +
+  geom_point(alpha = 0.1) +
+  geom_smooth(alpha = 0.5) +
+  labs(
+    title = "Avg Max Temp in Jan and July in each NY Station Across Years",
+    x = "Year",
+    y = "Temperature (°C)",
+    caption = "Data from the NOAA dataset"
+  ) +
+  scale_x_continuous(
+    breaks = c(1980, 1985, 1990, 1995, 2000, 2005, 2010)
+    ) +
+  facet_grid(. ~ month) +
+  scale_color_manual(values = c("blue", "red")) +
+  theme(legend.position = "none")
+ 
+```
+The average max temperature in January is generally lower than the average max temperature in July. There is not much variation in the average max temperature throughout the years. The outlier in January is at -14 degree celcius and the outlier in January is at 14 degree celcius.
+
+```{r}
+hexagon <- ggplot(ny_noaa%>% drop_na(tmax,tmin), aes(x = tmin, y = tmax))+geom_hex()
+```
+
+```{r}
+density <- ny_noaa %>%
+  mutate(year = as.factor(year)) %>%
+  filter(snow > 0 & snow < 100) %>%
+  ggplot(aes(x = snow, color = year)) +
+  geom_density(alpha = 0.02) +
+  labs(title = "Density Plot of Snowfall",
+         x = "Snowfall(mm)", 
+         y = "Density") + 
+  theme(legend.key.size = unit(0.1, "in"))
+```
+
+```{r}
+library(patchwork)
+hexagon/density
+```
+
